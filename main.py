@@ -211,7 +211,10 @@ def auto_hunt():
             pag.locate("sinsung.png", img, confidence=0.8)
         except ImageNotFoundException:
             print("신성 사용")
-            pdi.press("3")
+            pdi.keyDown("3")
+            time.sleep(0.05)
+            pdi.keyUp("3")
+
         
         start_time = time.perf_counter()
         results = model.predict(frame, imgsz=config.IMG_SIZE, save=False, show=False, conf=config.CONFIDENCE)
@@ -238,7 +241,7 @@ def auto_hunt():
         skill_used=False
         cx, cy = (region[0] + region[2]) // 2, (region[1] + region[3]) // 2
         units = nearby_units((cx, cy), screen_boxes, target_classes=(0, 1), radius=config.PLAYER_RADIUS)
-        if len(units) >= 3:
+        if len(units) >= 2:
             print("근처에 3마리 이상 몬스터가 있습니다.")
             pdi.moveTo(cx, cy)
             skill_used=True
