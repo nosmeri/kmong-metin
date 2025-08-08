@@ -83,7 +83,7 @@ def is_skill_ready(key):
     return (time.time() - last_skill_use[key]) >= cooldown_sec[key]
 
 def use_skill(key):
-    pdi.press(str(key))
+    press_key(str(key))
     last_skill_use[key] = time.time()
     print(f"[스킬] {key}번 사용")
 
@@ -193,6 +193,11 @@ def nearby_units(center, screen_boxes, target_classes=(0, 1), radius=150):
                 res.append(b)
     return res
 
+def press_key(key):
+    pdi.keyDown(str(key))
+    time.sleep(0.05)
+    pdi.keyUp(str(key))
+
 
 def auto_hunt():
     if not config.WINDOW_TITLE:
@@ -211,9 +216,7 @@ def auto_hunt():
             pag.locate("sinsung.png", img, confidence=0.8)
         except ImageNotFoundException:
             print("신성 사용")
-            pdi.keyDown("3")
-            time.sleep(0.05)
-            pdi.keyUp("3")
+            press_key("3")
 
         
         start_time = time.perf_counter()
@@ -233,7 +236,7 @@ def auto_hunt():
 
         if not cls0 and not cls1:
             print("몬스터가 없습니다. 텔레포트합니다.")
-            pdi.press("0")
+            press_key("0")
             time.sleep(3)
             continue
         
@@ -266,7 +269,7 @@ def auto_hunt():
             pdi.moveTo(cx, cy)
             print("몬스터 발견:", cls_names[box["cls"]], "확률:", box["conf"])
             print("조준:", cx, cy)
-            pdi.press("4")
+            press_key("4")
             print("공격: 4")
             time.sleep(0.1)
 
@@ -287,7 +290,7 @@ def auto_hunt():
             elif is_skill_ready(8):
                 use_skill(8)
             else:
-                pdi.press("4")
+                press_key("4")
                 print("공격: 4")
             time.sleep(0.1)
 
@@ -296,7 +299,7 @@ def auto_hunt():
         for cx, cy in singles:
             pdi.moveTo(cx, cy)
             print("개별 발견:", cx, cy)
-            pdi.press("4")
+            press_key("4")
             print("공격: 4")
             time.sleep(0.1)
 
