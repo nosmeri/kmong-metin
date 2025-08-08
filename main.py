@@ -210,6 +210,9 @@ def auto_hunt():
     while True:
         if kb.is_pressed("F2"):
             return
+        pdi.moveTo(100, 100)  # 마우스 위치 초기화
+        time.sleep(0.05)
+
         img, region=get_window_img(config.WINDOW_TITLE)
         frame = np.array(img)
         frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
