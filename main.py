@@ -195,7 +195,7 @@ def nearby_units(center, screen_boxes, target_classes=(0, 1), radius=150):
 
 def press_key(key):
     pdi.keyDown(str(key))
-    time.sleep(0.05)
+    time.sleep(0.1)
     pdi.keyUp(str(key))
     time.sleep(0.3)
 
@@ -301,7 +301,7 @@ def auto_hunt():
             press_key("4")
             print("공격: 4")
 
-        time.sleep(3)
+        time.sleep(0.1)
     
     
 
