@@ -197,6 +197,7 @@ def press_key(key):
     pdi.keyDown(str(key))
     time.sleep(0.05)
     pdi.keyUp(str(key))
+    time.sleep(0.7)
 
 
 def auto_hunt():
