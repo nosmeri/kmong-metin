@@ -4,6 +4,7 @@ from screenshot import get_window_tilte, get_window_img
 from config import Config
 import pyautogui as pag
 from pyautogui import ImageNotFoundException
+import pydirectinput as pdi
 import keyboard as kb
 import time
 import sys
@@ -74,13 +75,15 @@ cooldown_sec = {5: 120, 6: 60, 7: 60, 8: 60, 9: 60}
 os.system("cls")
 print("gpu detected.." if torch.cuda.is_available() else "", ascii_art)
 
+pdi.PAUSE = 0
+
 #--------------------------------------------------------------
 
 def is_skill_ready(key):
     return (time.time() - last_skill_use[key]) >= cooldown_sec[key]
 
 def use_skill(key):
-    pag.press(str(key))
+    pdi.press(str(key))
     last_skill_use[key] = time.time()
     print(f"[스킬] {key}번 사용")
 
@@ -208,7 +211,7 @@ def auto_hunt():
             pag.locate("sinsung.png", img, confidence=0.8)
         except ImageNotFoundException:
             print("신성 사용")
-            pag.press("3")
+            pdi.press("3")
         
         start_time = time.perf_counter()
         results = model.predict(frame, imgsz=config.IMG_SIZE, save=False, show=False, conf=config.CONFIDENCE)
@@ -227,7 +230,7 @@ def auto_hunt():
 
         if not cls0 and not cls1:
             print("몬스터가 없습니다. 텔레포트합니다.")
-            pag.press("0")
+            pdi.press("0")
             time.sleep(3)
             continue
         
@@ -237,7 +240,7 @@ def auto_hunt():
         units = nearby_units((cx, cy), screen_boxes, target_classes=(0, 1), radius=config.PLAYER_RADIUS)
         if len(units) >= 3:
             print("근처에 3마리 이상 몬스터가 있습니다.")
-            pag.moveTo(cx, cy, duration=0.05)
+            pdi.moveTo(cx, cy, duration=0.05)
             skill_used=True
             if is_skill_ready(5):
                 use_skill(5)
@@ -257,10 +260,10 @@ def auto_hunt():
 
             cx, cy = box["center_screen"]
 
-            pag.moveTo(cx, cy, duration=0.05)
+            pdi.moveTo(cx, cy, duration=0.05)
             print("몬스터 발견:", cls_names[box["cls"]], "확률:", box["conf"])
             print("조준:", cx, cy)
-            pag.press("4")
+            pdi.press("4")
             print("공격: 4")
             time.sleep(0.1)
 
@@ -274,23 +277,23 @@ def auto_hunt():
         print("군집 오거 처리 시작")
 
         for cx, cy in clusters:
-            pag.moveTo(cx, cy, duration=0.05)
+            pdi.moveTo(cx, cy, duration=0.05)
             print("군집 발견:", cx, cy)
             if is_skill_ready(7):
                 use_skill(7)
             elif is_skill_ready(8):
                 use_skill(8)
             else:
-                pag.press("4")
+                pdi.press("4")
                 print("공격: 4")
             time.sleep(0.1)
 
         print("개별 오거 처리 시작")
         
         for cx, cy in singles:
-            pag.moveTo(cx, cy, duration=0.05)
+            pdi.moveTo(cx, cy, duration=0.05)
             print("개별 발견:", cx, cy)
-            pag.press("4")
+            pdi.press("4")
             print("공격: 4")
             time.sleep(0.1)
 
