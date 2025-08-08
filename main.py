@@ -233,22 +233,21 @@ def auto_hunt():
         
 
         skill_used=False
-        if cls2:
-            cx, cy = cls2["center_screen"]
-            units = nearby_units((cx, cy), screen_boxes, target_classes=(0, 1), radius=config.PLAYER_RADIUS)
-            if len(units) >= 3:
-                print("근처에 3마리 이상 몬스터가 있습니다.")
-                pag.moveTo(cx, cy, duration=0.05)
-                skill_used=True
-                if is_skill_ready(5):
-                    use_skill(5)
-                elif is_skill_ready(6):
-                    use_skill(6)
-                elif is_skill_ready(9):
-                    use_skill(9)
-                else:
-                    print("쿨타임 중입니다.")
-                    skill_used=False
+        cx, cy = (region[0] + region[2]) // 2, (region[1] + region[3]) // 2
+        units = nearby_units((cx, cy), screen_boxes, target_classes=(0, 1), radius=config.PLAYER_RADIUS)
+        if len(units) >= 3:
+            print("근처에 3마리 이상 몬스터가 있습니다.")
+            pag.moveTo(cx, cy, duration=0.05)
+            skill_used=True
+            if is_skill_ready(5):
+                use_skill(5)
+            elif is_skill_ready(6):
+                use_skill(6)
+            elif is_skill_ready(9):
+                use_skill(9)
+            else:
+                print("쿨타임 중입니다.")
+                skill_used=False
 
         print("일반 몬스터 처리 시작")
 
