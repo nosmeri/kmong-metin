@@ -61,8 +61,9 @@ def auto_hunt():
     except ImageNotFoundException:
         print("신성 사용")
         pag.press("3")
-    
+    t=time.time_ns()
     results = model.predict(frame, imgsz=config.IMG_SIZE)
+    print("inference time:", (time.time_ns()-t)/1e6, "ms")
     results[0].show()
     
 
