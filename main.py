@@ -197,7 +197,7 @@ def press_key(key):
     pdi.keyDown(str(key))
     time.sleep(0.05)
     pdi.keyUp(str(key))
-    time.sleep(0.7)
+    time.sleep(0.3)
 
 
 def auto_hunt():
@@ -272,7 +272,6 @@ def auto_hunt():
             print("조준:", cx, cy)
             press_key("4")
             print("공격: 4")
-            time.sleep(0.1)
 
         clusters, singles = split_cluster_and_singles_sklearn(
             screen_boxes,
@@ -293,7 +292,6 @@ def auto_hunt():
             else:
                 press_key("4")
                 print("공격: 4")
-            time.sleep(0.1)
 
         print("개별 오거 처리 시작")
         
@@ -302,7 +300,6 @@ def auto_hunt():
             print("개별 발견:", cx, cy)
             press_key("4")
             print("공격: 4")
-            time.sleep(0.1)
 
         time.sleep(3)
     
