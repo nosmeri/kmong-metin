@@ -87,7 +87,7 @@ def auto_hunt():
         print("신성 사용")
         pag.press("3")
     results = model.predict(frame, imgsz=config.IMG_SIZE, save=False, show=False)
-    screen_boxes = get_box(results[0].boxes)
+    screen_boxes = get_box(results[0].boxes, region)
 
     for box in screen_boxes:
         x1, y1, x2, y2 = box["xyxy_screen"]
