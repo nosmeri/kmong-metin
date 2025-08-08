@@ -12,6 +12,10 @@ class Config:
 
     WINDOW_TITLE: str = None
 
+    CONFIDENCE: float = 0.6
+
+    PLAYER_RADIUS: float = 150
+
     def save(self, path: Path = CFG_PATH) -> None:
         path.write_text(json.dumps(asdict(self), indent=2, ensure_ascii=False))
 

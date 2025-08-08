@@ -10,8 +10,26 @@ import sys
 import cv2
 import numpy as np
 import torch
+from sklearn.cluster import KMeans
+import math
 
-os.system("cls")
+ascii_art_load = r"""
+
+
+######### ######## ######## ######## ######## ######## ######### ######## ######## ######## ######## 
+#  ###  # #      # #      # ##    ## #  ##  # ######## #  ###  # ###  ### ##    ## #     ## ##    ## 
+#   #   # #  ##### ###  ### ###  ### #   #  # ######## #   #   # ##    ## #  ##  # #  ##  # #  ##  # 
+#       # #    ### ###  ### ###  ### #      # ######## #       # #  ##  # #  ##### #  ##  # #  ##  # 
+#  # #  # #  ##### ###  ### ###  ### #      # ######## #  # #  # #      # #  ##### #     ## #  ##  # 
+#  ###  # #  ##### ###  ### ###  ### #  #   # ######## #  ###  # #  ##  # #  ##  # #  #  ## #  ##  # 
+#  ###  # #      # ###  ### ##    ## #  ##  # ######## #  ###  # #  ##  # ##    ## #  ##  # ##    ## 
+######### ######## ######## ######## ######## ######## ######### ######## ######## ######## ######## 
+
+                                              loding...
+
+
+"""
+
 
 ascii_art = r"""
 
@@ -31,45 +49,146 @@ ascii_art = r"""
 
 """
 
-print("gpu detected.." if torch.cuda.is_available() else "", ascii_art)
+
+os.system("cls")
+print("gpu detected.." if torch.cuda.is_available() else "", ascii_art_load)
 
 #--------------------------------------------------------------
+
+config = Config.load()
 
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 model = YOLO('./train/weights/best.pt').to(device=device)
-config = Config.load()
+dummy = np.zeros((config.IMG_SIZE, config.IMG_SIZE, 3), dtype=np.uint8)
+model.predict(dummy, imgsz=config.IMG_SIZE, conf=0.25, verbose=False)
+
+cls_names = model.names
+
+
+last_skill_use = {5: 0, 6: 0, 7: 0, 8: 0, 9: 0}
+cooldown_sec = {5: 120, 6: 60, 7: 60, 8: 60, 9: 60}
+
+
+os.system("cls")
+print("gpu detected.." if torch.cuda.is_available() else "", ascii_art)
 
 #--------------------------------------------------------------
 
-def get_pos(region, origin_pos):
-    return region[0]+origin_pos[0],region[1]+origin_pos[1]
+def is_skill_ready(key):
+    return (time.time() - last_skill_use[key]) >= cooldown_sec[key]
 
+def use_skill(key):
+    pag.press(str(key))
+    last_skill_use[key] = time.time()
+    print(f"[스킬] {key}번 사용")
 
 def get_box(boxes, region):
-    xyxy = boxes.xyxy.cpu().numpy()      # (N, 4) in [x1,y1,x2,y2] on the cropped frame
+    xyxy = boxes.xyxy.cpu().numpy()
     cls  = boxes.cls.cpu().numpy()
     conf = boxes.conf.cpu().numpy()
 
     screen_boxes = []
-    x_off, y_off = region[0], region[1]  # window top-left offset on the screen
+    x_off, y_off = region[0], region[1]
 
     for (x1, y1, x2, y2), c, p in zip(xyxy, cls, conf):
-        # 화면 전체 기준 좌표
         sx1, sy1, sx2, sy2 = x1 + x_off, y1 + y_off, x2 + x_off, y2 + y_off
-        # 화면에서의 중심점(필요 시 클릭/조준 등)
         cx, cy = (sx1 + sx2) / 2, (sy1 + sy2) / 2
-
         screen_boxes.append({
             "xyxy_screen": (int(sx1), int(sy1), int(sx2), int(sy2)),
             "center_screen": (int(cx), int(cy)),
             "cls": int(c),
             "conf": float(p),
         })
-    return screen_boxes
+
+    # cls==2만 따로 필터링
+    cls2_boxes = [b for b in screen_boxes if b["cls"] == 2]
+    if cls2_boxes:
+        # 확률 가장 높은 cls2 하나만
+        best_cls2 = max(cls2_boxes, key=lambda b: b["conf"])
+        # cls==2가 아닌 박스들과 합쳐서 반환
+        others = [b for b in screen_boxes if b["cls"] != 2]
+        return others + [best_cls2]
+    else:
+        # cls2 없으면 전체 그대로
+        return screen_boxes
 
 
+
+def split_cluster_and_singles_sklearn(
+    screen_boxes,
+    target_cls=1,
+    min_cluster_size=3,
+    max_k=3,
+):
+    """
+    cls==target_cls 만 골라서:
+      - 멤버 수 >= min_cluster_size 군집 → '군집 타깃' (가중치합 내림차순)
+      - 그 외(멤버 수 < min_cluster_size) → '개별 타깃' (conf 내림차순)
+    return: (cluster_targets, single_targets)
+      cluster_targets: [(x, y), ...]  # 군집 중심(가중치 평균)
+      single_targets : [(x, y), ...]  # 개별 중심
+    """
+    # 1) 대상 필터링
+    targets = [b for b in screen_boxes if b["cls"] == target_cls]
+    if not targets:
+        return [], []
+
+    pts  = np.array([b["center_screen"] for b in targets], dtype=np.float32)  # (N,2)
+    conf = np.array([b["conf"]          for b in targets], dtype=np.float32)  # (N,)
+    N = len(pts)
+
+    # 2) 너무 적으면 전부 개별 처리
+    if N < min_cluster_size:
+        singles_order = np.argsort(-conf)  # conf 내림차순
+        single_targets = [tuple(map(int, pts[i])) for i in singles_order]
+        return [], single_targets
+
+    # 3) 적당한 k 선정 (대략 'min_cluster_size 당 1군집' 목표 + 상한)
+    est_k = int(np.ceil(N / float(min_cluster_size)))
+    k = max(2, min(max_k, est_k, N))  # [2, max_k] 범위, N 초과 금지
+
+    # 4) KMeans (conf를 가중치로 반영)
+    kmeans = KMeans(n_clusters=k, n_init="auto", random_state=0)
+    kmeans.fit(pts, sample_weight=conf)
+    labels  = kmeans.labels_
+    centers = kmeans.cluster_centers_  # (k,2)
+
+    # 5) 군집/개별 분리
+    cluster_targets = []
+    single_indices  = []
+
+    for i in range(k):
+        idxs = np.where(labels == i)[0]
+        if len(idxs) >= min_cluster_size:
+            wsum = float(conf[idxs].sum())
+            # 가중치 중심(centroid 보정)
+            cx, cy = (pts[idxs] * conf[idxs][:, None]).sum(axis=0) / max(wsum, 1e-6)
+            cluster_targets.append((wsum, int(cx), int(cy)))
+        else:
+            single_indices.extend(idxs.tolist())
+
+    # 6) 정렬
+    cluster_targets.sort(key=lambda t: t[0], reverse=True)        # 가중치합 내림차순
+    single_indices.sort(key=lambda i: conf[i], reverse=True)      # conf 내림차순
+
+    cluster_targets = [(x, y) for _, x, y in cluster_targets]
+    single_targets  = [tuple(map(int, pts[i])) for i in single_indices]
+
+    return cluster_targets, single_targets
+
+
+def nearby_units(center, screen_boxes, target_classes=(0, 1), radius=150):
+    cx, cy = center
+    res=[]
+    for b in screen_boxes:
+        if b["cls"] in target_classes:
+            bx, by = b["center_screen"]
+            dist = math.hypot(bx - cx, by - cy)
+            if dist <= radius:
+                res.append(b)
+    return res
 
 
 def auto_hunt():
@@ -78,28 +197,102 @@ def auto_hunt():
         time.sleep(2)
         return
     
-    img, region=get_window_img(config.WINDOW_TITLE)
-    frame = np.array(img)
-    frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-    try:
-        pag.locate("sinsung.png", img, confidence=0.8)
-    except ImageNotFoundException:
-        print("신성 사용")
-        pag.press("3")
-    results = model.predict(frame, imgsz=config.IMG_SIZE, save=False, show=False)
-    screen_boxes = get_box(results[0].boxes, region)
 
-    for box in screen_boxes:
-        x1, y1, x2, y2 = box["xyxy_screen"]
-        cx, cy = box["center_screen"]
-        cls = box["cls"]
+    while True:
+        if kb.is_pressed("F2"):
+            return
+        img, region=get_window_img(config.WINDOW_TITLE)
+        frame = np.array(img)
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        try:
+            pag.locate("sinsung.png", img, confidence=0.8)
+        except ImageNotFoundException:
+            print("신성 사용")
+            pag.press("3")
+        results = model.predict(frame, imgsz=config.IMG_SIZE, save=False, show=False, conf=config.CONFIDENCE)
+        result = results[0]
+        
 
-        if cls == 0:
+        #result.show()
+
+        screen_boxes = get_box(result.boxes, region)
+
+        cls0 = [b for b in screen_boxes if b["cls"] == 0] # monster
+        cls1 = [b for b in screen_boxes if b["cls"] == 1] # ogre
+        cls2 = [b for b in screen_boxes if b["cls"] == 2] # player
+        cls2 = cls2[0] if cls2 else None
+
+        if not cls0 and not cls1:
+            print("몬스터가 없습니다. 텔레포트합니다.")
+            pag.press("0")
+            time.sleep(3)
+            continue
+        
+
+        skill_used=False
+        if cls2:
+            cx, cy = cls2["center_screen"]
+            units = nearby_units((cx, cy), screen_boxes, target_classes=(0, 1), radius=config.PLAYER_RADIUS)
+            if len(units) >= 3:
+                print("근처에 3마리 이상 몬스터가 있습니다.")
+                pag.moveTo(cx, cy, duration=0.05)
+                skill_used=True
+                if is_skill_ready(5):
+                    use_skill(5)
+                elif is_skill_ready(6):
+                    use_skill(6)
+                elif is_skill_ready(9):
+                    use_skill(9)
+                else:
+                    print("쿨타임 중입니다.")
+                    skill_used=False
+
+        print("일반 몬스터 처리 시작")
+
+        for box in cls0:
+            if skill_used and box in units:
+                continue  # 이미 스킬 사용한 몬스터는 건너뜀
+
+            cx, cy = box["center_screen"]
+
             pag.moveTo(cx, cy, duration=0.05)
-            print("몬스터 발견:", box["cls"], "확률:", box["conf"])
+            print("몬스터 발견:", cls_names[box["cls"]], "확률:", box["conf"])
+            print("조준:", cx, cy)
             pag.press("4")
             print("공격: 4")
             time.sleep(0.1)
+
+        clusters, singles = split_cluster_and_singles_sklearn(
+            screen_boxes,
+            target_cls=1,        # <- cls==1만 대상
+            min_cluster_size=3,  # <- 3마리 이상만 군집으로 인정
+            max_k=3,             # <- 군집 최대 3개까지 찾음
+        )
+
+        print("군집 오거 처리 시작")
+
+        for cx, cy in clusters:
+            pag.moveTo(cx, cy, duration=0.05)
+            print("군집 발견:", cx, cy)
+            if is_skill_ready(7):
+                use_skill(7)
+            elif is_skill_ready(8):
+                use_skill(8)
+            else:
+                pag.press("4")
+                print("공격: 4")
+            time.sleep(0.1)
+
+        print("개별 오거 처리 시작")
+        
+        for cx, cy in singles:
+            pag.moveTo(cx, cy, duration=0.05)
+            print("개별 발견:", cx, cy)
+            pag.press("4")
+            print("공격: 4")
+            time.sleep(0.1)
+
+        time.sleep(3)
     
     
 
@@ -120,8 +313,8 @@ while True:
 
         auto_hunt()
 
-        #os.system("cls")
-        #print(ascii_art)
+        os.system("cls")
+        print(ascii_art)
     elif kb.is_pressed("F3"):
         config.save()
         print("저장 완료..")
