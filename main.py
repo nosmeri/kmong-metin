@@ -209,7 +209,10 @@ def auto_hunt():
         except ImageNotFoundException:
             print("신성 사용")
             pag.press("3")
+        
+        start_time = time.perf_counter()
         results = model.predict(frame, imgsz=config.IMG_SIZE, save=False, show=False, conf=config.CONFIDENCE)
+        print("추론시간:", (time.perf_counter() - start_time)*1000, "ms")
         result = results[0]
         
 
@@ -315,6 +318,8 @@ while True:
 
         os.system("cls")
         print(ascii_art)
+
+        time.sleep(2)
     elif kb.is_pressed("F3"):
         config.save()
         print("저장 완료..")
