@@ -44,8 +44,8 @@ ascii_art = r"""
 #  ###  # #      # ###  ### ##    ## #  ##  # ######## #  ###  # #  ##  # ##    ## #  ##  # ##    ## 
 ######### ######## ######## ######## ######## ######## ######### ######## ######## ######## ######## 
 
-                            [F1] Select Window   [F2] Auto Hunt
-                            [F3] Save            [F4] Exit
+                            [PgUP] Select Window [PgDn] Auto Hunt
+                            [F3] Save           
 
 
 """
@@ -199,7 +199,7 @@ def press_key(key):
     pdi.keyDown(str(key))
     time.sleep(0.1)
     pdi.keyUp(str(key))
-    time.sleep(0.3)
+    time.sleep(0.1)
 
 
 def auto_hunt():
@@ -210,7 +210,7 @@ def auto_hunt():
     
 
     while True:
-        if kb.is_pressed("F2"):
+        if kb.is_pressed("pagedown"):
             return
         pdi.moveTo(100, 100)  # 마우스 위치 초기화
         time.sleep(0.05)
@@ -243,7 +243,7 @@ def auto_hunt():
         if not cls0 and not cls1:
             print("몬스터가 없습니다. 텔레포트합니다.")
             press_key("0")
-            time.sleep(3)
+            time.sleep(2)
             continue
         
 
@@ -313,7 +313,7 @@ def auto_hunt():
 
 
 while True:
-    if kb.is_pressed("F1"):
+    if kb.is_pressed("pageup"):
         config.WINDOW_TITLE=get_window_tilte()
         print()
         print("선택됨:", config.WINDOW_TITLE)
@@ -321,7 +321,7 @@ while True:
 
         os.system("cls")
         print(ascii_art)
-    elif kb.is_pressed("F2"):
+    elif kb.is_pressed("pagedown"):
         print("3초 후 자동사냥이 시작됩니다")
         time.sleep(3)
 
@@ -338,6 +338,4 @@ while True:
 
         os.system("cls")
         print(ascii_art)
-    elif kb.is_pressed("F4"):
-        sys.exit(1)
 
