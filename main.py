@@ -196,7 +196,6 @@ def nearby_units(center, screen_boxes, target_classes=(0, 1), radius=150):
     return res
 
 def press_key(key):
-    time.sleep(0.1)
     pdi.keyDown(str(key))
     time.sleep(0.1)
     pdi.keyUp(str(key))
@@ -280,6 +279,7 @@ def auto_hunt():
 
             pdi.moveTo(cx, cy, duration=0.1)
             print("몬스터 발견:", cls_names[box["cls"]], "확률:", box["conf"])
+            press_key("4")  # 공격 키
 
         clusters, singles = split_cluster_and_singles_sklearn(
             screen_boxes,
