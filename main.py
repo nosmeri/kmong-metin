@@ -247,6 +247,7 @@ def auto_hunt():
         if not cls0 and not cls1:
             no_cnt += 1
             if no_cnt >= 5:
+                no_cnt = 0
                 print("몬스터가 없습니다. 텔레포트합니다.")
                 press_key("0")
                 time.sleep(2)
