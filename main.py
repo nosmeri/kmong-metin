@@ -216,7 +216,7 @@ def auto_hunt():
     while True:
         if kb.is_pressed("pagedown"):
             return
-        pdi.moveTo(100, 100)  # 마우스 위치 초기화
+        #pdi.moveTo(100, 100)  # 마우스 위치 초기화
         time.sleep(0.05)
 
         img, region=get_window_img(config.WINDOW_TITLE)
