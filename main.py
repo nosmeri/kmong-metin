@@ -254,6 +254,7 @@ def auto_hunt():
                 continue
             else:
                 print("몬스터가 없습니다. 0.2초 후 다시 시도합니다.")
+                pdi.moveTo((region[0] + region[2]) // 2, (region[1] + region[3]) // 2)
                 time.sleep(0.2)
                 continue
 
