@@ -281,7 +281,7 @@ def auto_hunt():
             cx, cy = box["center_screen"]
 
             pdi.moveTo(cx, cy, duration=0.1)
-            print("몬스터 발견:", cls_names[box["cls"]-1], "확률:", box["conf"])
+            print("몬스터 발견:", cls_names[box["cls"]+1], "확률:", box["conf"])
             press_key("4")  # 공격 키
 
         clusters, singles = split_cluster_and_singles_sklearn(
