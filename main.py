@@ -256,37 +256,8 @@ def auto_hunt():
                 print("몬스터가 없습니다. 0.2초 후 다시 시도합니다.")
                 time.sleep(0.2)
                 continue
-        
 
-        skill_used=False
-        cx, cy = (region[0] + region[2]) // 2, (region[1] + region[3]) // 2
-        if cls2:
-            cx, cy = cls2["center_screen"]
-
-        units = nearby_units((cx, cy), screen_boxes, target_classes=(0, 1), radius=config.PLAYER_RADIUS)
-        if len(units) >= 2:
-            print("근처에 3마리 이상 몬스터가 있습니다.")
-            pdi.moveTo(cx, cy, duration=0.1)
-            skill_used=True
-            if is_skill_ready(5):
-                use_skill(5)
-            elif is_skill_ready(6):
-                use_skill(6)
-            elif is_skill_ready(9):
-                use_skill(9)
-            else:
-                print("쿨타임 중입니다.")
-                skill_used=False
-
-        for box in cls0:
-            if skill_used and box in units:
-                continue  # 이미 스킬 사용한 몬스터는 건너뜀
-
-            cx, cy = box["center_screen"]
-
-            pdi.moveTo(cx, cy, duration=0.1)
-            print("몬스터 발견:", cls_names[box["cls"]+1], "확률:", box["conf"])
-            press_key("4")  # 공격 키
+        #--------------------------------------------------------------
 
         clusters, singles = split_cluster_and_singles_sklearn(
             screen_boxes,
@@ -312,6 +283,42 @@ def auto_hunt():
             pdi.moveTo(cx, cy, duration=0.1)
             print("개별 발견:", cx, cy)
             press_key("4")
+
+        #--------------------------------------------------------------
+
+        
+
+        skill_used=False
+        cx, cy = (region[0] + region[2]) // 2, (region[1] + region[3]) // 2
+        if cls2:
+            cx, cy = cls2["center_screen"]
+
+        units = nearby_units((cx, cy), screen_boxes, target_classes=(0, 1), radius=config.PLAYER_RADIUS)
+        if len(units) >= 2:
+            print("근처에 3마리 이상 몬스터가 있습니다.")
+            pdi.moveTo(cx, cy, duration=0.1)
+            skill_used=True
+            if is_skill_ready(5):
+                use_skill(5)
+            elif is_skill_ready(6):
+                use_skill(6)
+            elif is_skill_ready(9):
+                use_skill(9)
+            else:
+                print("쿨타임 중입니다.")
+                skill_used=False
+
+        #--------------------------------------------------------------
+
+        for box in cls0:
+            if skill_used and box in units:
+                continue  # 이미 스킬 사용한 몬스터는 건너뜀
+
+            cx, cy = box["center_screen"]
+
+            pdi.moveTo(cx, cy, duration=0.1)
+            print("몬스터 발견:", cls_names[box["cls"]+1], "확률:", box["conf"])
+            press_key("4")  # 공격 키
 
         time.sleep(0.1)
     
