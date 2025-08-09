@@ -72,7 +72,7 @@ last_skill_use = {5: 0, 6: 0, 7: 0, 8: 0, 9: 0}
 cooldown_sec = {5: 120, 6: 60, 7: 60, 8: 60, 9: 60}
 
 last_any_skil_use = 0
-cooldown_any_skill_sec = 6
+cooldown_any_skill_sec = 10
 
 
 os.system("cls")
