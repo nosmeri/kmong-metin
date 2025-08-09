@@ -271,8 +271,6 @@ def auto_hunt():
                 print("쿨타임 중입니다.")
                 skill_used=False
 
-        print("일반 몬스터 처리 시작")
-
         for box in cls0:
             if skill_used and box in units:
                 continue  # 이미 스킬 사용한 몬스터는 건너뜀
@@ -281,9 +279,6 @@ def auto_hunt():
 
             pdi.moveTo(cx, cy, duration=0.1)
             print("몬스터 발견:", cls_names[box["cls"]], "확률:", box["conf"])
-            print("조준:", cx, cy)
-            press_key("4")
-            print("공격: 4")
 
         clusters, singles = split_cluster_and_singles_sklearn(
             screen_boxes,
@@ -292,7 +287,6 @@ def auto_hunt():
             max_k=3,             # <- 군집 최대 3개까지 찾음
         )
 
-        print("군집 오거 처리 시작")
 
         for cx, cy in clusters:
             pdi.moveTo(cx, cy, duration=0.1)
@@ -305,13 +299,11 @@ def auto_hunt():
                 press_key("4")
                 print("공격: 4")
 
-        print("개별 오거 처리 시작")
         
         for cx, cy in singles:
             pdi.moveTo(cx, cy, duration=0.1)
             print("개별 발견:", cx, cy)
             press_key("4")
-            print("공격: 4")
 
         time.sleep(0.1)
     
