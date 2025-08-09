@@ -301,7 +301,7 @@ def auto_hunt():
                 use_skill(8)
             else:
                 press_key("4")
-                print("공격: 4")
+                print("쿨타임 중입니다.")
 
         
         for cx, cy in singles:
