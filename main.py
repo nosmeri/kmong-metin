@@ -71,6 +71,9 @@ cls_names = model.names
 last_skill_use = {5: 0, 6: 0, 7: 0, 8: 0, 9: 0}
 cooldown_sec = {5: 120, 6: 60, 7: 60, 8: 60, 9: 60}
 
+last_any_skil_use = 0
+cooldown_any_skill_sec = 6
+
 
 os.system("cls")
 print("gpu detected.." if torch.cuda.is_available() else "", ascii_art)
@@ -80,11 +83,12 @@ pdi.PAUSE = 0
 #--------------------------------------------------------------
 
 def is_skill_ready(key):
-    return (time.time() - last_skill_use[key]) >= cooldown_sec[key]
+    return (time.time() - last_any_skil_use) >= cooldown_any_skill_sec and (time.time() - last_skill_use[key]) >= cooldown_sec[key]
 
 def use_skill(key):
     press_key(str(key))
     last_skill_use[key] = time.time()
+    last_any_skil_use = time.time()
     print(f"[스킬] {key}번 사용")
 
 def get_box(boxes, region):
