@@ -208,7 +208,7 @@ def auto_hunt():
         time.sleep(2)
         return
     
-
+    no_cnt=0
     while True:
         if kb.is_pressed("pagedown"):
             return
@@ -241,10 +241,16 @@ def auto_hunt():
         cls2 = cls2[0] if cls2 else None
 
         if not cls0 and not cls1:
-            print("몬스터가 없습니다. 텔레포트합니다.")
-            press_key("0")
-            time.sleep(2)
-            continue
+            no_cnt += 1
+            if no_cnt >= 5:
+                print("몬스터가 없습니다. 텔레포트합니다.")
+                press_key("0")
+                time.sleep(2)
+                continue
+            else:
+                print("몬스터가 없습니다. 0.2초 후 다시 시도합니다.")
+                time.sleep(0.2)
+                continue
         
 
         skill_used=False
