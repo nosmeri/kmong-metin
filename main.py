@@ -196,6 +196,7 @@ def nearby_units(center, screen_boxes, target_classes=(0, 1), radius=150):
     return res
 
 def press_key(key):
+    time.sleep(0.1)
     pdi.keyDown(str(key))
     time.sleep(0.1)
     pdi.keyUp(str(key))
