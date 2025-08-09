@@ -248,7 +248,6 @@ def auto_hunt():
             no_cnt += 1
             if no_cnt >= 5:
                 print("몬스터가 없습니다. 텔레포트합니다.")
-                no_cnt = 0
                 press_key("0")
                 time.sleep(2)
                 continue
@@ -256,6 +255,8 @@ def auto_hunt():
                 print("몬스터가 없습니다. 0.2초 후 다시 시도합니다.")
                 time.sleep(0.2)
                 continue
+
+        no_cnt = 0
 
         #--------------------------------------------------------------
 
