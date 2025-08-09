@@ -256,6 +256,9 @@ def auto_hunt():
 
         skill_used=False
         cx, cy = (region[0] + region[2]) // 2, (region[1] + region[3]) // 2
+        if cls2:
+            cx, cy = cls2["center_screen"]
+
         units = nearby_units((cx, cy), screen_boxes, target_classes=(0, 1), radius=config.PLAYER_RADIUS)
         if len(units) >= 2:
             print("근처에 3마리 이상 몬스터가 있습니다.")
@@ -278,7 +281,7 @@ def auto_hunt():
             cx, cy = box["center_screen"]
 
             pdi.moveTo(cx, cy, duration=0.1)
-            print("몬스터 발견:", cls_names[box["cls"]], "확률:", box["conf"])
+            print("몬스터 발견:", cls_names[box["cls"]-1], "확률:", box["conf"])
             press_key("4")  # 공격 키
 
         clusters, singles = split_cluster_and_singles_sklearn(
