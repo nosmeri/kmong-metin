@@ -296,7 +296,7 @@ def auto_hunt():
             cx, cy = cls2["center_screen"]
 
         units = nearby_units((cx, cy), screen_boxes, target_classes=(0, 1), radius=config.PLAYER_RADIUS)
-        if len(units) >= 2:
+        if len(units) >= 3:
             print("근처에 3마리 이상 몬스터가 있습니다.")
             pdi.moveTo(cx, cy, duration=0.1)
             skill_used=True
