@@ -98,10 +98,12 @@ def get_box(boxes, region):
     for (x1, y1, x2, y2), c, p in zip(xyxy, cls, conf):
         sx1, sy1, sx2, sy2 = x1 + x_off, y1 + y_off, x2 + x_off, y2 + y_off
         cx, cy = (sx1 + sx2) / 2, (sy1 + sy2) / 2
+        if int(c) == 0:
+            continue # 시체 제외
         screen_boxes.append({
             "xyxy_screen": (int(sx1), int(sy1), int(sx2), int(sy2)),
             "center_screen": (int(cx), int(cy)),
-            "cls": int(c),
+            "cls": int(c)-1,
             "conf": float(p),
         })
 
