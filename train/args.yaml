@@ -1,7 +1,7 @@
 task: detect
 mode: train
 model: yolo11m.pt
-data: MetinDataSet2/data.yaml
+data: MetinDataSet3/data.yaml
 epochs: 150
 time: null
 patience: 10
@@ -13,7 +13,7 @@ cache: true
 device: '0'
 workers: 4
 project: null
-name: train5
+name: train6
 exist_ok: false
 pretrained: true
 optimizer: auto
@@ -102,4 +102,4 @@ auto_augment: randaugment
 erasing: 0.4
 cfg: null
 tracker: botsort.yaml
-save_dir: runs\detect\train5
+save_dir: runs\detect\train6
