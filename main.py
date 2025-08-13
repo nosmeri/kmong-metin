@@ -86,6 +86,10 @@ def is_skill_ready(key):
     return (time.time() - last_any_skil_use) >= cooldown_any_skill_sec and (time.time() - last_skill_use[key]) >= cooldown_sec[key]
 
 def use_skill(key):
+    global last_skill_use, last_any_skil_use
+    press_key(str(key))
+    press_key(str(key))
+    press_key(str(key))
     press_key(str(key))
     last_skill_use[key] = time.time()
     last_any_skil_use = time.time()
@@ -213,7 +217,16 @@ def auto_hunt():
         return
     
     no_cnt=0
+
+    lag_cool=0
     while True:
+        lag_cool = time.time()
+        if lag_cool > 60:
+            print("렉 몹 방지")
+            pdi.mouseDown(button="right")
+            time.sleep(2)
+            pdi.mouseUp(button="right")
+
         if kb.is_pressed("pagedown"):
             return
         #pdi.moveTo(100, 100)  # 마우스 위치 초기화
