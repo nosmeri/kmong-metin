@@ -221,7 +221,7 @@ def auto_hunt():
     lag_cool=0
     while True:
         lag_cool = time.time()
-        if lag_cool > 60:
+        if time.time()-lag_cool > 60:
             print("렉 몹 방지")
             pdi.mouseDown(button="right")
             time.sleep(2)
