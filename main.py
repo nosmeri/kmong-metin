@@ -14,6 +14,9 @@ import torch
 from sklearn.cluster import KMeans
 import math
 
+# =============================
+# ASCII ART
+# =============================
 ascii_art_load = r"""
 
 
@@ -31,7 +34,6 @@ ascii_art_load = r"""
 
 """
 
-
 ascii_art = r"""
 
 
@@ -45,130 +47,163 @@ ascii_art = r"""
 ######### ######## ######## ######## ######## ######## ######### ######## ######## ######## ######## 
 
                             [PgUP] Select Window [PgDn] Auto Hunt
-                            [F3] Save           
-
+                            [F3] Save   [F2] Toggle Debug  [ESC] Emergency Stop
 
 """
 
+# =============================
+# GLOBAL SETTINGS
+# =============================
+DEBUG_VIS = True              # F2로 토글
+SHOW_INFER_MS = True          # 추론 시간 출력(간헐)
+PRINT_EVERY_N = 10            # 로그 스팸 방지
+TARGET_FPS = 20               # 프레임 제한(대상 FPS)
+MOVE_DUR = 0.08               # 마우스 이동 시간(부드럽게)
+ANTI_LAG_INTERVAL = 60        # 초. 60초마다 우클릭 유지로 렉 방지
+ANTI_LAG_HOLD = 2.0           # 초. 우클릭 유지 시간
 
-os.system("cls")
+# 클래스 ID는 학습한 모델 순서를 그대로 사용
+# 0: corpse, 1: monster, 2: ogre, 3: player
+CLS_CORPSE, CLS_MONSTER, CLS_OGRE, CLS_PLAYER = 0, 1, 2, 3
+
+# 스킬/행동 키 설정
+ATTACK_KEY = "4"
+TELEPORT_KEY = "0"
+SKILL_KEYS = {5:120, 6:60, 7:60, 8:60, 9:60}  # 각 스킬 쿨다운(초)
+ANY_SKILL_COOLDOWN = 10                        # 모든 스킬 공용 딜레이(초)
+
+# =============================
+# INIT
+# =============================
+os.system("cls" if os.name == "nt" else "clear")
 print("gpu detected.." if torch.cuda.is_available() else "", ascii_art_load)
 
-#--------------------------------------------------------------
+torch.backends.cudnn.benchmark = True
+if hasattr(torch, "set_float32_matmul_precision"):
+    try:
+        torch.set_float32_matmul_precision("high")
+    except Exception:
+        pass
 
 config = Config.load()
 
-
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
 model = YOLO('./train/weights/best.pt').to(device=device)
-dummy = np.zeros((config.IMG_SIZE, config.IMG_SIZE, 3), dtype=np.uint8)
-model.predict(dummy, imgsz=config.IMG_SIZE, conf=0.25, verbose=False)
+try:
+    model.fuse()  # Conv+BN fuse (가능한 경우)
+except Exception:
+    pass
 
+USE_HALF = bool(device == 'cuda')
+
+# 더미로 워밍업
+_dummy = np.zeros((config.IMG_SIZE, config.IMG_SIZE, 3), dtype=np.uint8)
+_ = model.predict(_dummy, imgsz=config.IMG_SIZE, conf=0.25, verbose=False, half=USE_HALF)
 cls_names = model.names
 
-
-last_skill_use = {5: 0, 6: 0, 7: 0, 8: 0, 9: 0}
-cooldown_sec = {5: 120, 6: 60, 7: 60, 8: 60, 9: 60}
-
-last_any_skil_use = 0
-cooldown_any_skill_sec = 10
-
-
-os.system("cls")
-print("gpu detected.." if torch.cuda.is_available() else "", ascii_art)
+last_skill_use = {k: 0.0 for k in SKILL_KEYS}
+last_any_skill_use = 0.0
 
 pdi.PAUSE = 0
+pdi.FAILSAFE = True  # 모서리로 마우스 이동 시 중단
 
-#--------------------------------------------------------------
+os.system("cls" if os.name == "nt" else "clear")
+print("gpu detected.." if torch.cuda.is_available() else "", ascii_art)
 
-def is_skill_ready(key):
-    return (time.time() - last_any_skil_use) >= cooldown_any_skill_sec and (time.time() - last_skill_use[key]) >= cooldown_sec[key]
+# =============================
+# UTILS
+# =============================
+def now():
+    return time.time()
 
-def use_skill(key):
-    global last_skill_use, last_any_skil_use
-    press_key(str(key))
-    press_key(str(key))
-    press_key(str(key))
-    press_key(str(key))
-    last_skill_use[key] = time.time()
-    last_any_skil_use = time.time()
+
+def is_skill_ready(key:int) -> bool:
+    return (now() - last_any_skill_use) >= ANY_SKILL_COOLDOWN and (now() - last_skill_use[key]) >= SKILL_KEYS[key]
+
+
+def press_key(key:str, times:int=1, gap:float=0.06):
+    key = str(key)
+    for _ in range(times):
+        pdi.keyDown(key)
+        time.sleep(0.02)
+        pdi.keyUp(key)
+        time.sleep(gap)
+
+
+def use_skill(key:int, burst:int=3):
+    global last_any_skill_use
+    press_key(str(key), times=burst, gap=0.05)
+    last_skill_use[key] = now()
+    last_any_skill_use = now()
     print(f"[스킬] {key}번 사용")
 
-def get_box(boxes, region):
-    xyxy = boxes.xyxy.cpu().numpy()
-    cls  = boxes.cls.cpu().numpy()
-    conf = boxes.conf.cpu().numpy()
+
+def get_screen_boxes(result_boxes, region):
+    """Ultralytics Boxes -> 화면 좌표로 변환 + 필터링.
+       corpse(0) 제거, player(3)는 최고 신뢰도 1개만 유지.
+    """
+    xyxy = result_boxes.xyxy.cpu().numpy() if hasattr(result_boxes.xyxy, 'cpu') else result_boxes.xyxy
+    cls  = result_boxes.cls.cpu().numpy()  if hasattr(result_boxes.cls, 'cpu')  else result_boxes.cls
+    conf = result_boxes.conf.cpu().numpy() if hasattr(result_boxes.conf, 'cpu') else result_boxes.conf
 
     screen_boxes = []
     x_off, y_off = region[0], region[1]
 
     for (x1, y1, x2, y2), c, p in zip(xyxy, cls, conf):
-        sx1, sy1, sx2, sy2 = x1 + x_off, y1 + y_off, x2 + x_off, y2 + y_off
-        cx, cy = (sx1 + sx2) / 2, (sy1 + sy2) / 2
-        if int(c) == 0:
-            continue # 시체 제외
+        c = int(c)
+        if c == CLS_CORPSE:
+            continue
+        sx1, sy1, sx2, sy2 = int(x1 + x_off), int(y1 + y_off), int(x2 + x_off), int(y2 + y_off)
+        cx, cy = (sx1 + sx2) // 2, (sy1 + sy2) // 2
         screen_boxes.append({
-            "xyxy_screen": (int(sx1), int(sy1), int(sx2), int(sy2)),
-            "center_screen": (int(cx), int(cy)),
-            "cls": int(c)-1,
+            "xyxy_screen": (sx1, sy1, sx2, sy2),
+            "center_screen": (cx, cy),
+            "cls": c,
             "conf": float(p),
         })
 
-    # cls==2만 따로 필터링
-    cls2_boxes = [b for b in screen_boxes if b["cls"] == 2]
-    if cls2_boxes:
-        # 확률 가장 높은 cls2 하나만
-        best_cls2 = max(cls2_boxes, key=lambda b: b["conf"])
-        # cls==2가 아닌 박스들과 합쳐서 반환
-        others = [b for b in screen_boxes if b["cls"] != 2]
-        return others + [best_cls2]
-    else:
-        # cls2 없으면 전체 그대로
-        return screen_boxes
+    # player(3) 박스는 최고 신뢰도 하나만 남김
+    players = [b for b in screen_boxes if b["cls"] == CLS_PLAYER]
+    if players:
+        best_player = max(players, key=lambda b: b["conf"])
+        screen_boxes = [b for b in screen_boxes if b["cls"] != CLS_PLAYER] + [best_player]
 
+    return screen_boxes
 
 
 def split_cluster_and_singles_sklearn(
     screen_boxes,
-    target_cls=1,
+    target_cls=CLS_OGRE,
     min_cluster_size=3,
     max_k=3,
 ):
     """
-    cls==target_cls 만 골라서:
+    target_cls 만 골라서:
       - 멤버 수 >= min_cluster_size 군집 → '군집 타깃' (가중치합 내림차순)
-      - 그 외(멤버 수 < min_cluster_size) → '개별 타깃' (conf 내림차순)
+      - 그 외 → '개별 타깃' (conf 내림차순)
     return: (cluster_targets, single_targets)
       cluster_targets: [(x, y), ...]  # 군집 중심(가중치 평균)
       single_targets : [(x, y), ...]  # 개별 중심
     """
-    # 1) 대상 필터링
     targets = [b for b in screen_boxes if b["cls"] == target_cls]
     if not targets:
         return [], []
 
-    pts  = np.array([b["center_screen"] for b in targets], dtype=np.float32)  # (N,2)
-    conf = np.array([b["conf"]          for b in targets], dtype=np.float32)  # (N,)
+    pts  = np.array([b["center_screen"] for b in targets], dtype=np.float32)
+    conf = np.array([b["conf"]           for b in targets], dtype=np.float32)
     N = len(pts)
 
-    # 2) 너무 적으면 전부 개별 처리
     if N < min_cluster_size:
-        singles_order = np.argsort(-conf)  # conf 내림차순
-        single_targets = [tuple(map(int, pts[i])) for i in singles_order]
-        return [], single_targets
+        order = np.argsort(-conf)
+        return [], [tuple(map(int, pts[i])) for i in order]
 
-    # 3) 적당한 k 선정 (대략 'min_cluster_size 당 1군집' 목표 + 상한)
     est_k = int(np.ceil(N / float(min_cluster_size)))
-    k = max(2, min(max_k, est_k, N))  # [2, max_k] 범위, N 초과 금지
+    k = max(2, min(max_k, est_k, N))
 
-    # 4) KMeans (conf를 가중치로 반영)
-    kmeans = KMeans(n_clusters=k, n_init="auto", random_state=0)
+    kmeans = KMeans(n_clusters=k, n_init=10, random_state=0)
     kmeans.fit(pts, sample_weight=conf)
     labels  = kmeans.labels_
-    centers = kmeans.cluster_centers_  # (k,2)
 
-    # 5) 군집/개별 분리
     cluster_targets = []
     single_indices  = []
 
@@ -176,205 +211,255 @@ def split_cluster_and_singles_sklearn(
         idxs = np.where(labels == i)[0]
         if len(idxs) >= min_cluster_size:
             wsum = float(conf[idxs].sum())
-            # 가중치 중심(centroid 보정)
             cx, cy = (pts[idxs] * conf[idxs][:, None]).sum(axis=0) / max(wsum, 1e-6)
             cluster_targets.append((wsum, int(cx), int(cy)))
         else:
             single_indices.extend(idxs.tolist())
 
-    # 6) 정렬
-    cluster_targets.sort(key=lambda t: t[0], reverse=True)        # 가중치합 내림차순
-    single_indices.sort(key=lambda i: conf[i], reverse=True)      # conf 내림차순
+    cluster_targets.sort(key=lambda t: t[0], reverse=True)
+    single_indices.sort(key=lambda i: conf[i], reverse=True)
 
-    cluster_targets = [(x, y) for _, x, y in cluster_targets]
-    single_targets  = [tuple(map(int, pts[i])) for i in single_indices]
-
-    return cluster_targets, single_targets
+    clusters = [(x, y) for _, x, y in cluster_targets]
+    singles  = [tuple(map(int, pts[i])) for i in single_indices]
+    return clusters, singles
 
 
-def nearby_units(center, screen_boxes, target_classes=(0, 1), radius=150):
+def nearby_units(center, screen_boxes, target_classes=(CLS_MONSTER, CLS_OGRE), radius=150):
     cx, cy = center
-    res=[]
+    res = []
     for b in screen_boxes:
         if b["cls"] in target_classes:
             bx, by = b["center_screen"]
-            dist = math.hypot(bx - cx, by - cy)
-            if dist <= radius:
+            if math.hypot(bx - cx, by - cy) <= radius:
                 res.append(b)
     return res
 
-def press_key(key):
-    pdi.keyDown(str(key))
-    time.sleep(0.1)
-    pdi.keyUp(str(key))
-    time.sleep(0.1)
-
+# =============================
+# CORE LOOP
+# =============================
 
 def auto_hunt():
     if not config.WINDOW_TITLE:
         print("창을 선택해주세요")
         time.sleep(2)
         return
-    
-    no_cnt=0
-    cnt=0
 
-    lag_cool=time.time()
-    while True:
-        if time.time()-lag_cool > 60:
-            print("렉 몹 방지")
-            pdi.mouseDown(button="right")
-            time.sleep(2)
-            pdi.mouseUp(button="right")
-            lag_cool = time.time()
+    frame_cnt = 0
+    no_cnt = 0
 
-        if kb.is_pressed("pagedown"):
-            return
-        #pdi.moveTo(100, 100)  # 마우스 위치 초기화
-        time.sleep(0.05)
+    last_anti_lag = now()
 
-        img, region=get_window_img(config.WINDOW_TITLE)
-        frame = np.array(img)
-        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-        try:
-            pag.locate("sinsung.png", img, confidence=0.8)
-        except ImageNotFoundException:
-            print("신성 사용")
-            press_key("3")
+    # 디버그 창 준비
+    win_name = "result"
+    created_window = False
 
-        
-        start_time = time.perf_counter()
-        results = model.predict(frame, imgsz=config.IMG_SIZE, save=False, show=False, conf=config.CONFIDENCE)
-        print("추론시간:", (time.perf_counter() - start_time)*1000, "ms")
-        result = results[0]
-        
+    try:
+        while True:
+            loop_start = time.perf_counter()
 
-        cv2.imshow("result", result.plot())
-        cv2.waitKey(1)
+            # 비상 정지
+            if kb.is_pressed("esc"):
+                print("[중단] ESC")
+                break
+            if kb.is_pressed("pagedown"):
+                return
 
-        screen_boxes = get_box(result.boxes, region)
+            # 주기적 렉 방지(우클릭 유지)
+            if now() - last_anti_lag > ANTI_LAG_INTERVAL:
+                print("[렉 방지] 우클릭 유지")
+                pdi.mouseDown(button="right")
+                time.sleep(ANTI_LAG_HOLD)
+                pdi.mouseUp(button="right")
+                last_anti_lag = now()
 
-        cls0 = [b for b in screen_boxes if b["cls"] == 0] # monster
-        cls1 = [b for b in screen_boxes if b["cls"] == 1] # ogre
-        cls2 = [b for b in screen_boxes if b["cls"] == 2] # player
-        cls2 = cls2[0] if cls2 else None
+            # 캡처
+            img, region = get_window_img(config.WINDOW_TITLE)
+            frame = np.array(img)
+            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 
-        if cnt >= 50:
-            cnt = 0
-            print("아이템 인식 방지")
-            press_key("0")
-            time.sleep(1)
-            continue
+            # 버프/스킬 체크(예: 이미지로 상태 확인)
+            try:
+                pag.locate("sinsung.png", img, confidence=0.8)
+            except ImageNotFoundException:
+                print("신성 사용")
+                press_key("3")
 
-        if not cls0 and not cls1:
-            no_cnt += 1
-            if no_cnt >= 10:
+            # 추론
+            if device == 'cuda':
+                torch.cuda.synchronize()
+            t0 = time.perf_counter()
+            results = model.predict(
+                frame,
+                imgsz=config.IMG_SIZE,
+                conf=config.CONFIDENCE,
+                iou=0.45,
+                half=USE_HALF,
+                verbose=False,
+                workers=0,
+            )
+            if device == 'cuda':
+                torch.cuda.synchronize()
+            infer_ms = (time.perf_counter() - t0) * 1000.0
+            if SHOW_INFER_MS:
+                print(f"추론시간: {infer_ms:.1f} ms")
+
+            result = results[0]
+
+            # 디버그 시각화
+            if DEBUG_VIS:
+                try:
+                    if not created_window:
+                        cv2.namedWindow(win_name, cv2.WINDOW_NORMAL)
+                        created_window = True
+                    cv2.imshow(win_name, result.plot())
+                    cv2.waitKey(1)
+                except Exception:
+                    pass
+
+            # 박스 정리(화면 좌표)
+            screen_boxes = get_screen_boxes(result.boxes, region)
+
+            monsters = [b for b in screen_boxes if b["cls"] == CLS_MONSTER]
+            ogres    = [b for b in screen_boxes if b["cls"] == CLS_OGRE]
+            player   = next((b for b in screen_boxes if b["cls"] == CLS_PLAYER), None)
+
+            # 주기적 아이템 인식 방지
+            if frame_cnt > 50:
+                frame_cnt = 0
+                print("[처리] 아이템 인식 방지")
+                press_key(TELEPORT_KEY)
+                press_key(TELEPORT_KEY)
+                press_key(TELEPORT_KEY)
+                time.sleep(0.8)
+
+            # 몬스터 없음 처리
+            if not monsters and not ogres:
+                no_cnt += 1
+                if no_cnt >= 10:
+                    no_cnt = 0
+                    print("몬스터 없음 → 텔레포트")
+                    press_key(TELEPORT_KEY)
+                    time.sleep(0.8)
+                    _fps_sleep(loop_start)
+                    continue
+                else:
+                    print("몬스터 없음 → 대기")
+                    cx = (region[0] + region[2]) // 2
+                    cy = (region[1] + region[3]) // 2
+                    pdi.moveTo(cx, cy)
+                    time.sleep(0.1)
+                    _fps_sleep(loop_start)
+                    continue
+            else:
                 no_cnt = 0
-                print("몬스터가 없습니다. 텔레포트합니다.")
-                press_key("0")
-                time.sleep(1)
-                continue
-            else:
-                print("몬스터가 없습니다. 0.1초 후 다시 시도합니다.")
-                pdi.moveTo((region[0] + region[2]) // 2, (region[1] + region[3]) // 2)
-                time.sleep(0.1)
-                continue
 
-        no_cnt = 0
+            # ============ 우선순위 1: 오우거 군집 처리 ============
+            clusters, singles = split_cluster_and_singles_sklearn(
+                screen_boxes,
+                target_cls=CLS_OGRE,
+                min_cluster_size=4,
+                max_k=3,
+            )
+            for cx, cy in clusters:
+                pdi.moveTo(cx, cy, duration=MOVE_DUR)
+                print("[군집] 오우거 군집 타격")
+                if   is_skill_ready(7):
+                    use_skill(7)
+                elif is_skill_ready(8):
+                    use_skill(8)
+                else:
+                    press_key(ATTACK_KEY)
+                    print("쿨타임 중 → 평타")
 
-        #--------------------------------------------------------------
+            for cx, cy in singles:
+                pdi.moveTo(cx, cy, duration=MOVE_DUR)
+                print("[개별] 오우거 단일 타격")
+                press_key(ATTACK_KEY)
 
-        clusters, singles = split_cluster_and_singles_sklearn(
-            screen_boxes,
-            target_cls=1,        # <- cls==1만 대상
-            min_cluster_size=4,  # <- 3마리 이상만 군집으로 인정
-            max_k=3,             # <- 군집 최대 3개까지 찾음
-        )
+            # ============ 우선순위 2: 플레이어 주변 광역 ============
+            center = player["center_screen"] if player else (
+                (region[0] + region[2]) // 2,
+                (region[1] + region[3]) // 2,
+            )
+            units = nearby_units(center, screen_boxes, target_classes=(CLS_MONSTER, CLS_OGRE), radius=config.PLAYER_RADIUS)
+            used = False
+            if len(units) >= 3:
+                print("[광역] 주변 3마리 이상 → 광역 스킬")
+                pdi.moveTo(*center, duration=MOVE_DUR)
+                if   is_skill_ready(5):
+                    use_skill(5); used = True
+                elif is_skill_ready(6):
+                    use_skill(6); used = True
+                elif is_skill_ready(9):
+                    use_skill(9); used = True
+                else:
+                    print("광역 스킬 쿨타임")
 
+            # ============ 우선순위 3: 일반 몬스터 처리 ============
+            for box in monsters:
+                if used and box in units:
+                    continue  # 방금 광역으로 친 대상은 스킵
+                cx, cy = box["center_screen"]
+                label = cls_names.get(box["cls"], str(box["cls"])) if isinstance(cls_names, dict) else str(box["cls"]) 
+                pdi.moveTo(cx, cy, duration=MOVE_DUR)
+                print(f"[타격] {label} conf={box['conf']:.2f}")
+                press_key(ATTACK_KEY)
 
-        for cx, cy in clusters:
-            pdi.moveTo(cx, cy, duration=0.1)
-            print("군집 발견:", cx, cy)
-            if is_skill_ready(7):
-                use_skill(7)
-            elif is_skill_ready(8):
-                use_skill(8)
-            else:
-                press_key("4")
-                print("쿨타임 중입니다.")
+            frame_cnt += 1
+            _fps_sleep(loop_start)
 
-        
-        for cx, cy in singles:
-            pdi.moveTo(cx, cy, duration=0.1)
-            print("개별 발견:", cx, cy)
-            press_key("4")
-
-        #--------------------------------------------------------------
-
-        
-
-        skill_used=False
-        cx, cy = (region[0] + region[2]) // 2, (region[1] + region[3]) // 2
-        if cls2:
-            cx, cy = cls2["center_screen"]
-
-        units = nearby_units((cx, cy), screen_boxes, target_classes=(0, 1), radius=config.PLAYER_RADIUS)
-        if len(units) >= 3:
-            print("근처에 3마리 이상 몬스터가 있습니다.")
-            pdi.moveTo(cx, cy, duration=0.1)
-            skill_used=True
-            if is_skill_ready(5):
-                use_skill(5)
-            elif is_skill_ready(6):
-                use_skill(6)
-            elif is_skill_ready(9):
-                use_skill(9)
-            else:
-                print("쿨타임 중입니다.")
-                skill_used=False
-
-        #--------------------------------------------------------------
-
-        for box in cls0:
-            if skill_used and box in units:
-                continue  # 이미 스킬 사용한 몬스터는 건너뜀
-
-            cx, cy = box["center_screen"]
-
-            pdi.moveTo(cx, cy, duration=0.1)
-            print("몬스터 발견:", cls_names[box["cls"]+1], "확률:", box["conf"])
-            press_key("4")  # 공격 키
-
-        time.sleep(0.1)
-    
-    
+    finally:
+        try:
+            cv2.destroyAllWindows()
+        except Exception:
+            pass
 
 
+def _fps_sleep(loop_start):
+    # 목표 FPS에 맞춰 슬립
+    target_dt = 1.0 / max(1, TARGET_FPS)
+    elapsed = time.perf_counter() - loop_start
+    if elapsed < target_dt:
+        time.sleep(target_dt - elapsed)
+
+# =============================
+# MAIN HOTKEY LOOP
+# =============================
 
 while True:
-    if kb.is_pressed("pageup"):
-        config.WINDOW_TITLE=get_window_tilte()
-        print()
-        print("선택됨:", config.WINDOW_TITLE)
-        time.sleep(1)
+    try:
+        if kb.is_pressed("f2"):
+            DEBUG_VIS = not DEBUG_VIS
+            print(f"DEBUG_VIS = {DEBUG_VIS}")
+            time.sleep(0.25)
 
-        os.system("cls")
-        print(ascii_art)
-    elif kb.is_pressed("pagedown"):
-        print("3초 후 자동사냥이 시작됩니다")
-        time.sleep(3)
+        if kb.is_pressed("pageup"):
+            config.WINDOW_TITLE = get_window_tilte()
+            print("\n선택됨:", config.WINDOW_TITLE)
+            time.sleep(0.7)
+            os.system("cls" if os.name == "nt" else "clear")
+            print(ascii_art)
 
-        auto_hunt()
+        elif kb.is_pressed("pagedown"):
+            print("3초 후 자동사냥 시작")
+            time.sleep(3)
+            auto_hunt()
+            os.system("cls" if os.name == "nt" else "clear")
+            print(ascii_art)
+            time.sleep(1.0)
 
-        os.system("cls")
-        print(ascii_art)
+        elif kb.is_pressed("f3"):
+            config.save()
+            print("저장 완료..")
+            time.sleep(0.5)
+            os.system("cls" if os.name == "nt" else "clear")
+            print(ascii_art)
 
-        time.sleep(2)
-    elif kb.is_pressed("F3"):
-        config.save()
-        print("저장 완료..")
-        time.sleep(1)
-
-        os.system("cls")
-        print(ascii_art)
-
+        time.sleep(0.03)
+    except KeyboardInterrupt:
+        print("[중단] KeyboardInterrupt")
+        break
+    except Exception as e:
+        # 에러로 전체 중단되는 것 방지
+        print("[오류]", e)
+        time.sleep(0.5)
