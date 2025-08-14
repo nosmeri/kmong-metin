@@ -260,16 +260,16 @@ def auto_hunt():
 
         if not cls0 and not cls1:
             no_cnt += 1
-            if no_cnt >= 5:
+            if no_cnt >= 10:
                 no_cnt = 0
                 print("몬스터가 없습니다. 텔레포트합니다.")
                 press_key("0")
                 time.sleep(2)
                 continue
             else:
-                print("몬스터가 없습니다. 0.2초 후 다시 시도합니다.")
+                print("몬스터가 없습니다. 0.1초 후 다시 시도합니다.")
                 pdi.moveTo((region[0] + region[2]) // 2, (region[1] + region[3]) // 2)
-                time.sleep(0.2)
+                time.sleep(0.1)
                 continue
 
         no_cnt = 0
@@ -279,7 +279,7 @@ def auto_hunt():
         clusters, singles = split_cluster_and_singles_sklearn(
             screen_boxes,
             target_cls=1,        # <- cls==1만 대상
-            min_cluster_size=3,  # <- 3마리 이상만 군집으로 인정
+            min_cluster_size=4,  # <- 3마리 이상만 군집으로 인정
             max_k=3,             # <- 군집 최대 3개까지 찾음
         )
 
