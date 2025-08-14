@@ -351,7 +351,7 @@ def auto_hunt():
                     print("몬스터 없음 → 대기")
                     cx = (region[0] + region[2]) // 2
                     cy = (region[1] + region[3]) // 2
-                    pdi.moveTo(cx, cy)
+                    pdi.moveTo(0, 0)
                     time.sleep(0.1)
                     _fps_sleep(loop_start)
                     continue
