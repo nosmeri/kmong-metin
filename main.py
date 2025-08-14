@@ -217,6 +217,7 @@ def auto_hunt():
         return
     
     no_cnt=0
+    cnt=0
 
     lag_cool=time.time()
     while True:
@@ -258,13 +259,20 @@ def auto_hunt():
         cls2 = [b for b in screen_boxes if b["cls"] == 2] # player
         cls2 = cls2[0] if cls2 else None
 
+        if cnt >= 50:
+            cnt = 0
+            print("아이템 인식 방지")
+            press_key("0")
+            time.sleep(1)
+            continue
+
         if not cls0 and not cls1:
             no_cnt += 1
             if no_cnt >= 10:
                 no_cnt = 0
                 print("몬스터가 없습니다. 텔레포트합니다.")
                 press_key("0")
-                time.sleep(2)
+                time.sleep(1)
                 continue
             else:
                 print("몬스터가 없습니다. 0.1초 후 다시 시도합니다.")
