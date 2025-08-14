@@ -218,14 +218,14 @@ def auto_hunt():
     
     no_cnt=0
 
-    lag_cool=0
+    lag_cool=time.time()
     while True:
-        lag_cool = time.time()
         if time.time()-lag_cool > 60:
             print("렉 몹 방지")
             pdi.mouseDown(button="right")
             time.sleep(2)
             pdi.mouseUp(button="right")
+            lag_cool = time.time()
 
         if kb.is_pressed("pagedown"):
             return
@@ -248,7 +248,8 @@ def auto_hunt():
         result = results[0]
         
 
-        #result.show()
+        #cv2.imshow("result", result.plot())
+        #cv2.waitKey(1)
 
         screen_boxes = get_box(result.boxes, region)
 
