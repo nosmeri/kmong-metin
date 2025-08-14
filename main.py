@@ -248,8 +248,8 @@ def auto_hunt():
         result = results[0]
         
 
-        #cv2.imshow("result", result.plot())
-        #cv2.waitKey(1)
+        cv2.imshow("result", result.plot())
+        cv2.waitKey(1)
 
         screen_boxes = get_box(result.boxes, region)
 
