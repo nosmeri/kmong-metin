@@ -174,17 +174,10 @@ def get_screen_boxes(result_boxes, region):
 def split_cluster_and_singles_sklearn(
     screen_boxes,
     target_cls=CLS_OGRE,
-    min_cluster_size=3,
+    min_cluster_size=4,
     max_k=3,
+    max_cluster_radius=90, 
 ):
-    """
-    target_cls 만 골라서:
-      - 멤버 수 >= min_cluster_size 군집 → '군집 타깃' (가중치합 내림차순)
-      - 그 외 → '개별 타깃' (conf 내림차순)
-    return: (cluster_targets, single_targets)
-      cluster_targets: [(x, y), ...]  # 군집 중심(가중치 평균)
-      single_targets : [(x, y), ...]  # 개별 중심
-    """
     targets = [b for b in screen_boxes if b["cls"] == target_cls]
     if not targets:
         return [], []
@@ -202,7 +195,7 @@ def split_cluster_and_singles_sklearn(
 
     kmeans = KMeans(n_clusters=k, n_init=10, random_state=0)
     kmeans.fit(pts, sample_weight=conf)
-    labels  = kmeans.labels_
+    labels = kmeans.labels_
 
     cluster_targets = []
     single_indices  = []
@@ -210,9 +203,20 @@ def split_cluster_and_singles_sklearn(
     for i in range(k):
         idxs = np.where(labels == i)[0]
         if len(idxs) >= min_cluster_size:
-            wsum = float(conf[idxs].sum())
-            cx, cy = (pts[idxs] * conf[idxs][:, None]).sum(axis=0) / max(wsum, 1e-6)
-            cluster_targets.append((wsum, int(cx), int(cy)))
+            w = conf[idxs]
+            wsum = float(w.sum())
+            cx, cy = (pts[idxs] * w[:, None]).sum(axis=0) / max(wsum, 1e-6)
+
+            # 가중치 RMS 반경 계산
+            dx = pts[idxs, 0] - cx
+            dy = pts[idxs, 1] - cy
+            r_rms = float(np.sqrt(((dx*dx + dy*dy) * w).sum() / max(wsum, 1e-6)))
+
+            if r_rms <= max_cluster_radius:  # ← 반경이 작을 때만 ‘진짜 군집’
+                cluster_targets.append((wsum, int(cx), int(cy)))
+            else:
+                # 퍼진 군집은 단일 타깃으로 편입
+                single_indices.extend(idxs.tolist())
         else:
             single_indices.extend(idxs.tolist())
 
@@ -222,6 +226,7 @@ def split_cluster_and_singles_sklearn(
     clusters = [(x, y) for _, x, y in cluster_targets]
     singles  = [tuple(map(int, pts[i])) for i in single_indices]
     return clusters, singles
+
 
 
 def nearby_units(center, screen_boxes, target_classes=(CLS_MONSTER, CLS_OGRE), radius=150):
@@ -359,6 +364,7 @@ def auto_hunt():
                 target_cls=CLS_OGRE,
                 min_cluster_size=4,
                 max_k=3,
+                max_cluster_radius=70,
             )
             for cx, cy in clusters:
                 pdi.moveTo(cx, cy, duration=MOVE_DUR)
