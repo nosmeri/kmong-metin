@@ -125,7 +125,7 @@ def press_key(key:str, times:int=1, gap:float=0.06):
     key = str(key)
     for _ in range(times):
         pdi.keyDown(key)
-        time.sleep(0.02)
+        time.sleep(0.04)
         pdi.keyUp(key)
         time.sleep(gap)
 
