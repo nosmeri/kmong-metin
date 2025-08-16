@@ -344,6 +344,7 @@ def auto_hunt():
             if not monsters and not ogres:
                 no_cnt += 1
                 if no_cnt >= 10:
+                    frame_cnt = 0
                     no_cnt = 0
                     print("몬스터 없음 → 텔레포트")
                     press_key(TELEPORT_KEY)
