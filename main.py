@@ -369,7 +369,7 @@ def auto_hunt():
             clusters, singles = split_cluster_and_singles_sklearn(
                 screen_boxes,
                 target_cls=CLS_OGRE,
-                min_cluster_size=3,
+                min_cluster_size=4,
                 max_k=3,
                 max_cluster_radius=70,
             )
