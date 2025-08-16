@@ -132,6 +132,7 @@ def press_key(key:str, times:int=1, gap:float=0.06):
 
 def use_skill(key:int, burst:int=3):
     global last_any_skill_use
+    time.sleep(1.7)
     press_key(str(key), times=burst, gap=0.05)
     last_skill_use[key] = now()
     last_any_skill_use = now()
@@ -376,7 +377,6 @@ def auto_hunt():
             for cx, cy in clusters:
                 pdi.moveTo(cx, cy, duration=MOVE_DUR)
                 print("[군집] 오우거 군집 타격")
-                time.sleep(1.7)
                 if   is_skill_ready(7):
                     use_skill(7)
                 elif is_skill_ready(8):
@@ -400,7 +400,6 @@ def auto_hunt():
             if len(units) >= 3:
                 print("[광역] 주변 3마리 이상 → 광역 스킬")
                 pdi.moveTo(*center, duration=MOVE_DUR)
-                time.sleep(1.7)
                 if   is_skill_ready(5):
                     use_skill(5); used = True
                 elif is_skill_ready(6):
