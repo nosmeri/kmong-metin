@@ -396,6 +396,7 @@ def auto_hunt():
             if len(units) >= 3:
                 print("[광역] 주변 3마리 이상 → 광역 스킬")
                 pdi.moveTo(*center, duration=MOVE_DUR)
+                time.sleep(1.5)
                 if   is_skill_ready(5):
                     use_skill(5); used = True
                 elif is_skill_ready(6):
