@@ -131,7 +131,7 @@ def press_key(key:str, times:int=1, gap:float=0.06):
 
 
 def use_skill(key:int, burst:int=3):
-    global last_any_skill_use
+    global last_any_skill_use, last_skill_use
     time.sleep(1.7)
     press_key(str(key), times=burst, gap=0.05)
     last_skill_use[key] = now()
