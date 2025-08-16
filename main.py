@@ -271,6 +271,7 @@ def auto_hunt():
 
             # 주기적 렉 방지(우클릭 유지)
             if now() - last_anti_lag > ANTI_LAG_INTERVAL:
+                frame_cnt = 0
                 print("[렉 방지] 우클릭 유지")
                 pdi.mouseDown(button="right")
                 time.sleep(ANTI_LAG_HOLD)
