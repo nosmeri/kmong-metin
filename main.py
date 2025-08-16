@@ -253,7 +253,7 @@ def auto_hunt():
     frame_cnt = 0
     no_cnt = 0
 
-    #last_anti_lag = now()
+    last_anti_lag = now()
 
     # 디버그 창 준비
     win_name = "result"
@@ -269,7 +269,7 @@ def auto_hunt():
                 break
             if kb.is_pressed("pagedown"):
                 return
-            """
+            
             # 주기적 렉 방지(우클릭 유지)
             if now() - last_anti_lag > ANTI_LAG_INTERVAL:
                 frame_cnt = 0
@@ -278,7 +278,6 @@ def auto_hunt():
                 time.sleep(ANTI_LAG_HOLD)
                 pdi.mouseUp(button="right")
                 last_anti_lag = now()
-            """
 
             # 캡처
             img, region = get_window_img(config.WINDOW_TITLE)
