@@ -331,6 +331,8 @@ def auto_hunt():
             # 주기적 아이템 인식 방지
             if len(monsters) + len(ogres) < 3:
                 frame_cnt += 1
+            else:
+                frame_cnt = 0  # 몬스터가 충분히 있으면 카운트 초기화
 
             if frame_cnt > 30:
                 frame_cnt = 0
