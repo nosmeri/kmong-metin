@@ -341,7 +341,7 @@ def auto_hunt():
                 press_key(TELEPORT_KEY)
                 press_key(TELEPORT_KEY)
                 press_key(TELEPORT_KEY)
-                time.sleep(0.8)
+                time.sleep(1)
 
             # 몬스터 없음 처리
             if not monsters and not ogres:
@@ -351,7 +351,7 @@ def auto_hunt():
                     no_cnt = 0
                     print("몬스터 없음 → 텔레포트")
                     press_key(TELEPORT_KEY)
-                    time.sleep(0.8)
+                    time.sleep(1)
                     _fps_sleep(loop_start)
                     continue
                 else:
