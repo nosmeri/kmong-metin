@@ -332,7 +332,7 @@ def auto_hunt():
             if len(monsters) + len(ogres) < 3:
                 frame_cnt += 1
 
-            if frame_cnt > 20:
+            if frame_cnt > 30:
                 frame_cnt = 0
                 print("[처리] 아이템 인식 방지")
                 press_key(TELEPORT_KEY)
