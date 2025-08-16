@@ -329,7 +329,10 @@ def auto_hunt():
             player   = next((b for b in screen_boxes if b["cls"] == CLS_PLAYER), None)
 
             # 주기적 아이템 인식 방지
-            if frame_cnt > 40:
+            if len(monsters) + len(ogres) < 3:
+                frame_cnt += 1
+
+            if frame_cnt > 20:
                 frame_cnt = 0
                 print("[처리] 아이템 인식 방지")
                 press_key(TELEPORT_KEY)
@@ -411,7 +414,6 @@ def auto_hunt():
                 print(f"[타격] {label} conf={box['conf']:.2f}")
                 press_key(ATTACK_KEY)
 
-            frame_cnt += 1
             _fps_sleep(loop_start)
 
     finally:
